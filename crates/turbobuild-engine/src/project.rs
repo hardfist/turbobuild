@@ -4,10 +4,13 @@ use turbo_tasks::{ResolvedVc, Vc};
 use turbo_tasks_fs::{
     DiskFileSystem, DiskFileSystemMap, DiskWatcherConfig, FileContent, FileSystem, FileSystemPath,
 };
-use turbobuild_core::{CONFIG_FILE_NAME, ProjectConfig, TargetGraph};
+use turbobuild_core::{
+    CONFIG_FILE_NAME, PACKAGE_JSON_FILE_NAME, ProjectConfig, TURBO_CONFIG_FILE_NAME, TargetGraph,
+};
 
-/// Directories that are never treated as build inputs.
-const DENIED_PATHS: &[&str] = &[".git", ".turbobuild"];
+/// Directories that are never treated as build inputs. `node_modules` is
+/// excluded because Turborepo tasks without `inputs` hash every project file.
+const DENIED_PATHS: &[&str] = &[".git", ".turbobuild", "node_modules"];
 
 /// A loaded and validated project.
 ///
@@ -16,7 +19,7 @@ const DENIED_PATHS: &[&str] = &[".git", ".turbobuild"];
 /// `turbobuild_core` types directly.
 #[turbo_tasks::value]
 pub struct Project {
-    /// The directory containing `turbobuild.toml`.
+    /// The directory containing `turbobuild.toml` or `turbo.json`.
     pub root: FileSystemPath,
     /// Targets in dependency order (dependencies first).
     pub targets: Vec<TargetSpec>,
@@ -54,17 +57,28 @@ pub async fn project_root(root_dir: RcStr, watch: bool) -> Result<Vc<FileSystemP
     Ok(fs.root())
 }
 
-/// Reads and validates `turbobuild.toml`. Re-runs only when that file changes.
+/// Reads and validates the project configuration: `turbobuild.toml`, or
+/// Turborepo's `turbo.json` (with `package.json` for task commands) when there
+/// is no `turbobuild.toml`. Re-runs only when one of those files changes,
+/// including when one is created or deleted.
 #[turbo_tasks::function]
 pub async fn load_project(root: FileSystemPath) -> Result<Vc<Project>> {
-    let config_path = root.join(CONFIG_FILE_NAME)?;
-    let content = config_path.read().await?;
-    let source = match &*content {
-        FileContent::Content(file) => file.content().to_str()?.into_owned(),
-        FileContent::NotFound => anyhow::bail!("{CONFIG_FILE_NAME} not found in project root"),
-    };
+    let toml = read_optional(&root, CONFIG_FILE_NAME).await?;
+    let turbo_json = read_optional(&root, TURBO_CONFIG_FILE_NAME).await?;
 
-    let config = ProjectConfig::from_toml(&source)?;
+    let config = match (toml, turbo_json) {
+        (Some(_), Some(_)) => anyhow::bail!(
+            "found both {CONFIG_FILE_NAME} and {TURBO_CONFIG_FILE_NAME} in project root; keep only one"
+        ),
+        (Some(toml), None) => ProjectConfig::from_toml(&toml)?,
+        (None, Some(turbo_json)) => {
+            let package_json = read_optional(&root, PACKAGE_JSON_FILE_NAME).await?;
+            ProjectConfig::from_turbo_json(&turbo_json, package_json.as_deref())?
+        }
+        (None, None) => anyhow::bail!(
+            "neither {CONFIG_FILE_NAME} nor {TURBO_CONFIG_FILE_NAME} found in project root"
+        ),
+    };
     let graph = TargetGraph::new(&config)?;
     let targets = graph
         .topological_order()?
@@ -81,6 +95,15 @@ pub async fn load_project(root: FileSystemPath) -> Result<Vc<Project>> {
         .collect();
 
     Ok(Project { root, targets }.cell())
+}
+
+/// Reads `name` in `root` as UTF-8, or `None` if it does not exist.
+async fn read_optional(root: &FileSystemPath, name: &str) -> Result<Option<String>> {
+    let content = root.join(name)?.read().await?;
+    Ok(match &*content {
+        FileContent::Content(file) => Some(file.content().to_str()?.into_owned()),
+        FileContent::NotFound => None,
+    })
 }
 
 /// Extracts a single target from the project.

@@ -2103,7 +2103,9 @@ name = "turbobuild-core"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "jsonc-parser",
  "serde",
+ "serde_json",
  "toml",
 ]
 
