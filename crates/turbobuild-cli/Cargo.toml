@@ -1,0 +1,21 @@
+[package]
+name = "turbobuild-cli"
+description = "Command-line interface for turbobuild."
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "turbobuild"
+path = "src/main.rs"
+
+[lints]
+workspace = true
+
+[dependencies]
+anyhow = { workspace = true }
+clap = { workspace = true }
+tokio = { workspace = true }
+tracing-subscriber = { workspace = true }
+turbobuild-engine = { workspace = true }

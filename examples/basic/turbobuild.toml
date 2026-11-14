@@ -1,0 +1,14 @@
+# A tiny project used to try out turbobuild:
+#   cargo tb -C examples/basic fingerprint
+#   cargo tb -C examples/basic fingerprint --watch
+
+[targets.shared]
+inputs = ["shared/**/*.txt"]
+
+[targets.app]
+inputs = ["app/src/**"]
+deps = ["shared"]
+command = "echo building app"
+
+[targets.docs]
+inputs = ["docs/*.md"]

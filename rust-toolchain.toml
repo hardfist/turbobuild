@@ -1,0 +1,6 @@
+# Keep in sync with the toolchain used by the pinned turbo engine revision
+# (vercel/next.js `rust-toolchain.toml`). The engine relies on nightly features.
+[toolchain]
+channel = "nightly-2026-11-06"
+components = ["rustfmt", "clippy", "rust-analyzer"]
+profile = "minimal"

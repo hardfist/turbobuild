@@ -1,0 +1,16 @@
+[env]
+CARGO_WORKSPACE_DIR = { value = "", relative = true }
+
+[alias]
+tb = "run --package turbobuild-cli --"
+
+# The turbo engine crates live in the (very large) vercel/next.js repository.
+# Shallow fetches keep the git dependency checkout small.
+[unstable]
+git = { shallow_index = true, shallow_deps = true }
+
+[target.'cfg(true)']
+rustflags = [
+  # Required by turbo-tasks, which uses tokio's unstable APIs.
+  "--cfg=tokio_unstable",
+]

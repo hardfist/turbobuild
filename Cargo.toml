@@ -1,0 +1,58 @@
+[workspace]
+resolver = "3"
+members = ["crates/*"]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "MIT"
+publish = false
+
+[workspace.lints.rust]
+unsafe_code = "deny"
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(tokio_unstable)"] }
+
+[workspace.lints.clippy]
+all = { level = "warn", priority = -1 }
+
+[workspace.dependencies]
+# Internal crates
+turbobuild-core = { path = "crates/turbobuild-core" }
+turbobuild-engine = { path = "crates/turbobuild-engine" }
+
+# Turbo engine (turbo-tasks), pinned to a vercel/next.js revision.
+# When bumping `rev`, also bump `rust-toolchain.toml` and `[patch.crates-io]`
+# to match that revision.
+turbo-rcstr = { git = "https://github.com/vercel/next.js", rev = "81d6086be4c48d58ca8079e02426539bee801807" }
+turbo-tasks = { git = "https://github.com/vercel/next.js", rev = "81d6086be4c48d58ca8079e02426539bee801807" }
+turbo-tasks-backend = { git = "https://github.com/vercel/next.js", rev = "81d6086be4c48d58ca8079e02426539bee801807" }
+turbo-tasks-fs = { git = "https://github.com/vercel/next.js", rev = "81d6086be4c48d58ca8079e02426539bee801807" }
+turbo-tasks-hash = { git = "https://github.com/vercel/next.js", rev = "81d6086be4c48d58ca8079e02426539bee801807" }
+
+# Third-party
+anyhow = "1.0.100"
+clap = { version = "4.5", features = ["derive"] }
+serde = { version = "1.0.228", features = ["derive"] }
+tokio = { version = "1.52.1", features = ["full"] }
+toml = "0.9"
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.16", features = ["env-filter"] }
+
+# The turbo engine depends on forks of these crates; mirror the patches from
+# the pinned vercel/next.js revision so the dependency graph resolves.
+[patch.crates-io]
+bincode = { git = "https://github.com/vercel-labs/bincode-fork.git", branch = "main" }
+virtue = { git = "https://github.com/vercel-labs/virtue-fork.git", branch = "trunk" }
+include_dir = { git = "https://github.com/vercel-labs/include_dir", branch = "turbopack" }
+
+[profile.dev]
+debug = "line-tables-only"
+
+[profile.dev.package."*"]
+opt-level = 1
+
+[profile.dev.build-override]
+opt-level = 3
+
+[profile.release]
+lto = "thin"
