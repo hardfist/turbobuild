@@ -1,0 +1,9 @@
+{
+  "name": "turbo-example",
+  "private": true,
+  "scripts": {
+    "build": "echo building",
+    "codegen": "echo generating types",
+    "lint": "echo linting"
+  }
+}

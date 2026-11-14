@@ -23,7 +23,9 @@ watching process and across runs via the persistent on-disk cache.
 │   ├── turbobuild-core/    # engine-agnostic model: config parsing, target graph
 │   ├── turbobuild-engine/  # turbo tasks: file hashing, target fingerprints, sessions
 │   └── turbobuild-cli/     # the `turbobuild` binary
-└── examples/basic/         # a small sample project
+└── examples/
+    ├── basic/              # a small sample project (turbobuild.toml)
+    └── turbo/              # the same idea configured with turbo.json
 ```
 
 `turbobuild-core` has no engine dependency and is plain, easily testable Rust.
@@ -40,6 +42,7 @@ cargo build
 cargo test --workspace
 cargo tb -C examples/basic fingerprint          # one-shot
 cargo tb -C examples/basic fingerprint --watch  # recompute on file changes
+cargo tb -C examples/turbo fingerprint          # a turbo.json project
 ```
 
 The persistent cache is stored in `<project>/.turbobuild/cache`. Pass
@@ -63,12 +66,42 @@ A target's fingerprint hashes its name, its input files, its command, and the
 fingerprints of its dependencies. So changing `shared/` changes the
 fingerprints of `shared` and `app`, and leaves unrelated targets alone.
 
+### Turborepo compatibility (`turbo.json`)
+
+When there is no `turbobuild.toml`, turbobuild reads Turborepo's `turbo.json`
+instead (having both is an error). Only the `tasks` section is supported, in
+Turborepo's single-package mode: the project root is one package and every
+task becomes a target.
+
+```jsonc
+{
+  "tasks": {
+    "build": { "dependsOn": ["^build", "codegen"], "inputs": ["src/**"] },
+    "codegen": { "inputs": ["schema/*.graphql"] }
+  }
+}
+```
+
+| `turbo.json`                  | turbobuild                                                   |
+| ----------------------------- | ------------------------------------------------------------ |
+| task name                     | target name                                                  |
+| `dependsOn: ["task"]`         | `deps`                                                       |
+| `dependsOn: ["^task"]`        | ignored: a single package has no upstream packages           |
+| `inputs`                      | `inputs`; omitted or `$TURBO_DEFAULT$` means all files (`**`) |
+| `package.json` `scripts.<task>` | `command`; a task without a script has no command           |
+
+Not supported yet, and rejected with an error: package tasks (`pkg#task`,
+`//#task`), negated input globs (`!pattern`), and `$ENV` entries in
+`dependsOn`. Other keys (`outputs`, `cache`, `env`, `persistent`,
+`globalDependencies`, ...) are accepted and ignored for now. `node_modules` is
+never an input. Comments and trailing commas are allowed, as in Turborepo.
+
 ## Task graph
 
 ```text
 project_fingerprints_operation(root_dir)         operation root
 ├── project_root(root_dir)                       disk file system (+ watcher)
-├── load_project(root)                           parses turbobuild.toml
+├── load_project(root)                           parses turbobuild.toml or turbo.json
 └── target_fingerprint(project, name)            one task per target
     ├── target_spec(project, name)               isolates one target's config
     ├── inputs_hash(root, globs)

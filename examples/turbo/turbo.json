@@ -1,0 +1,16 @@
+{
+  // Turborepo config, read by turbobuild when there is no turbobuild.toml:
+  //   cargo tb -C examples/turbo fingerprint
+  "$schema": "https://turborepo.com/schema.json",
+  "tasks": {
+    "build": {
+      "dependsOn": ["^build", "codegen"],
+      "inputs": ["src/**", "schema/**"],
+      "outputs": ["dist/**"]
+    },
+    "codegen": {
+      "inputs": ["schema/*.graphql"]
+    },
+    "lint": {}
+  }
+}
