@@ -109,19 +109,19 @@ mod tests {
     use super::*;
 
     fn config(source: &str) -> ProjectConfig {
-        ProjectConfig::from_toml(source).unwrap()
+        ProjectConfig::from_turbo_json(source, None).unwrap()
     }
 
     #[test]
     fn orders_dependencies_first() {
         let graph = TargetGraph::new(&config(
-            r#"
-            [targets.app]
-            deps = ["lib", "util"]
-            [targets.lib]
-            deps = ["util"]
-            [targets.util]
-            "#,
+            r#"{
+              "tasks": {
+                "app": { "dependsOn": ["lib", "util"] },
+                "lib": { "dependsOn": ["util"] },
+                "util": {}
+              }
+            }"#,
         ))
         .unwrap();
 
@@ -134,14 +134,17 @@ mod tests {
 
     #[test]
     fn rejects_unknown_dependency() {
-        let err = TargetGraph::new(&config("[targets.a]\ndeps = [\"missing\"]")).unwrap_err();
+        let err = TargetGraph::new(&config(
+            r#"{ "tasks": { "a": { "dependsOn": ["missing"] } } }"#,
+        ))
+        .unwrap_err();
         assert!(err.to_string().contains("unknown target `missing`"));
     }
 
     #[test]
     fn rejects_cycles() {
         let err = TargetGraph::new(&config(
-            "[targets.a]\ndeps = [\"b\"]\n[targets.b]\ndeps = [\"a\"]",
+            r#"{ "tasks": { "a": { "dependsOn": ["b"] }, "b": { "dependsOn": ["a"] } } }"#,
         ))
         .unwrap_err();
         assert!(err.to_string().contains("dependency cycle detected"));

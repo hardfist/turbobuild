@@ -1,6 +1,6 @@
 [package]
 name = "turbobuild-core"
-description = "Engine-agnostic data model for turbobuild: project config (turbobuild.toml, turbo.json) and target graph."
+description = "Engine-agnostic data model for turbobuild: turbo.json config and target graph."
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -14,4 +14,3 @@ anyhow = { workspace = true }
 jsonc-parser = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-toml = { workspace = true }

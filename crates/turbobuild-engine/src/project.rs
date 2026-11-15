@@ -4,9 +4,7 @@ use turbo_tasks::{ResolvedVc, Vc};
 use turbo_tasks_fs::{
     DiskFileSystem, DiskFileSystemMap, DiskWatcherConfig, FileContent, FileSystem, FileSystemPath,
 };
-use turbobuild_core::{
-    CONFIG_FILE_NAME, PACKAGE_JSON_FILE_NAME, ProjectConfig, TURBO_CONFIG_FILE_NAME, TargetGraph,
-};
+use turbobuild_core::{CONFIG_FILE_NAME, PACKAGE_JSON_FILE_NAME, ProjectConfig, TargetGraph};
 
 /// Directories that are never treated as build inputs. `node_modules` is
 /// excluded because Turborepo tasks without `inputs` hash every project file.
@@ -19,7 +17,7 @@ const DENIED_PATHS: &[&str] = &[".git", ".turbobuild", "node_modules"];
 /// `turbobuild_core` types directly.
 #[turbo_tasks::value]
 pub struct Project {
-    /// The directory containing `turbobuild.toml` or `turbo.json`.
+    /// The directory containing `turbo.json`.
     pub root: FileSystemPath,
     /// Targets in dependency order (dependencies first).
     pub targets: Vec<TargetSpec>,
@@ -57,28 +55,17 @@ pub async fn project_root(root_dir: RcStr, watch: bool) -> Result<Vc<FileSystemP
     Ok(fs.root())
 }
 
-/// Reads and validates the project configuration: `turbobuild.toml`, or
-/// Turborepo's `turbo.json` (with `package.json` for task commands) when there
-/// is no `turbobuild.toml`. Re-runs only when one of those files changes,
-/// including when one is created or deleted.
+/// Reads and validates `turbo.json` (with `package.json` for task commands).
+/// Re-runs only when one of those files changes, including when `package.json`
+/// is created or deleted.
 #[turbo_tasks::function]
 pub async fn load_project(root: FileSystemPath) -> Result<Vc<Project>> {
-    let toml = read_optional(&root, CONFIG_FILE_NAME).await?;
-    let turbo_json = read_optional(&root, TURBO_CONFIG_FILE_NAME).await?;
+    let turbo_json = read_optional(&root, CONFIG_FILE_NAME)
+        .await?
+        .with_context(|| format!("{CONFIG_FILE_NAME} not found in project root"))?;
+    let package_json = read_optional(&root, PACKAGE_JSON_FILE_NAME).await?;
 
-    let config = match (toml, turbo_json) {
-        (Some(_), Some(_)) => anyhow::bail!(
-            "found both {CONFIG_FILE_NAME} and {TURBO_CONFIG_FILE_NAME} in project root; keep only one"
-        ),
-        (Some(toml), None) => ProjectConfig::from_toml(&toml)?,
-        (None, Some(turbo_json)) => {
-            let package_json = read_optional(&root, PACKAGE_JSON_FILE_NAME).await?;
-            ProjectConfig::from_turbo_json(&turbo_json, package_json.as_deref())?
-        }
-        (None, None) => anyhow::bail!(
-            "neither {CONFIG_FILE_NAME} nor {TURBO_CONFIG_FILE_NAME} found in project root"
-        ),
-    };
+    let config = ProjectConfig::from_turbo_json(&turbo_json, package_json.as_deref())?;
     let graph = TargetGraph::new(&config)?;
     let targets = graph
         .topological_order()?
@@ -109,7 +96,7 @@ async fn read_optional(root: &FileSystemPath, name: &str) -> Result<Option<Strin
 /// Extracts a single target from the project.
 ///
 /// This is its own task so that downstream tasks depend on *one* target's
-/// spec rather than the whole config: editing target `a` in `turbobuild.toml`
+/// spec rather than the whole config: editing task `a` in `turbo.json`
 /// re-runs this task for every target, but because cells are compared by
 /// value, only tasks reading target `a` are invalidated.
 #[turbo_tasks::function]
