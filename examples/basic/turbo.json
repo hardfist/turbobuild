@@ -1,6 +1,7 @@
 {
-  // Turborepo config, read by turbobuild when there is no turbobuild.toml:
-  //   cargo tb -C examples/turbo fingerprint
+  // A tiny project used to try out turbobuild:
+  //   cargo tb -C examples/basic fingerprint
+  //   cargo tb -C examples/basic fingerprint --watch
   "$schema": "https://turborepo.com/schema.json",
   "tasks": {
     "build": {

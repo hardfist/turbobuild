@@ -9,7 +9,7 @@
 //!
 //! ```text
 //! project_fingerprints
-//!   └── load_project (reads turbobuild.toml)
+//!   └── load_project (reads turbo.json and package.json)
 //!   └── target_fingerprint(target)       one task per target
 //!         ├── inputs_hash(target)        hashes files matched by the target's globs
 //!         │     └── file_hash(path)      one task per file

@@ -1,5 +1,5 @@
 {
-  "name": "turbo-example",
+  "name": "basic-example",
   "private": true,
   "scripts": {
     "build": "echo building",

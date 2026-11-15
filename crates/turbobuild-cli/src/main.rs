@@ -14,7 +14,7 @@ use turbobuild_engine::{BuildSession, FingerprintReport};
     about = "An incremental build system powered by the turbo engine"
 )]
 struct Cli {
-    /// Project root (the directory containing `turbobuild.toml` or `turbo.json`).
+    /// Project root (the directory containing `turbo.json`).
     #[arg(long, short = 'C', global = true, default_value = ".")]
     dir: PathBuf,
 
